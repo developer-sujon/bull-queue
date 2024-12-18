@@ -25,7 +25,7 @@ app.get("/health", (_req: Request, res: Response) => {
 });
 
 // Routes
-app.use("/api", routes);
+app.use("/api/v1", routes);
 
 // send back a 404 error for any unknown api request
 app.use((_req, _res, next) => {

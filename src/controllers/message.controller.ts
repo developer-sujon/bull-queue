@@ -1,35 +1,72 @@
 import { Request, Response } from "express";
+import { logger } from "../config";
+import { defaults } from "../config/defaults";
 import catchAsync from "../helpers/catchAsync";
+import { createMessages, sendGREENSMS } from "../services/sms.service";
+import { generateHATEOASLinks, paginationGenerator } from "../utils/query";
 
 export const sendEmailHandler = catchAsync(
   async (req: Request, res: Response) => {
-    const { to, subject, body } = req.body;
+    const { recipient, body, scheduleAt } = req.body;
   }
 );
 
-export const sendSMSHandler = catchAsync(
+export const sendGREENSMSHandler = catchAsync(
   async (req: Request, res: Response) => {
-    const { to, body } = req.body;
+    const messageCreateDto = req.body;
 
-    res.status(200).json({ success: true, message: "SMS request received" });
+    // Create the messages in the database (single or bulk)
+    const messages = await createMessages(messageCreateDto);
 
-    processSMS(new Date().getTime());
+    // Respond to the client
+    res.status(200).json({
+      code: 200,
+      message: "SMS request received and is being processed",
+    });
+
+    logger.info("Sending SMS...");
+    await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulated delay
+
+    // Trigger SMS processing (either single or bulk)
+    await sendGREENSMS(messageCreateDto, messages); // Send the SMS
   }
 );
 
-const processSMS = async (smsId: number) => {
-  console.log(smsId);
+export const findAll = catchAsync(async (req: Request, res: Response) => {
+  const page = req.query.page || defaults.page;
+  const limit = req.query.limit || defaults.limit;
+  const sortType = req.query.sort_type || defaults.sortType;
+  const sortBy = req.query.sort_by || defaults.sortBy;
+  const search = req.query.search || defaults.search;
 
-  try {
-    // Simulate sending SMS (replace with actual SMS provider integration)
-    console.log("Sending SMS...");
-    await new Promise((resolve) => setTimeout(resolve, 5000)); // Simulated delay
+  //data
+  const data = await invoiceService.findAll({
+    page,
+    limit,
+    sortType,
+    sortBy,
+    search,
+  });
 
-    // Update SMS status in MongoDB
-    // await SMS.findByIdAndUpdate(smsId, { status: 'Sent' });
-    console.log("SMS sent and status updated");
-  } catch (error) {
-    console.error("Failed to send SMS:", error);
-    // await SMS.findByIdAndUpdate(smsId, { status: 'Failed' });
-  }
-};
+  // pagination
+  const totalItems = await invoiceService.count({ search });
+  const pagination = paginationGenerator({ totalItems, limit, page });
+
+  // HATEOAS Links
+  const links = generateHATEOASLinks({
+    query: req.query,
+    path: req.path,
+    prevPage: !!pagination.prevPage,
+    nextPage: !!pagination.nextPage,
+  });
+
+  // Respond to the client
+  res.status(200).json({
+    code: 200,
+    data: {
+      data,
+      pagination,
+      links,
+    },
+  });
+});

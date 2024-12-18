@@ -1,1 +1,2 @@
-export { MessageStatus, MessageType } from "./message.enum";
+export { ApplicationEnum } from "./application.enum";
+export { MessageStatus, SendingMethodEnum } from "./message.enum";
